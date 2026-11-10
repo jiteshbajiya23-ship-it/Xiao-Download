@@ -31,6 +31,7 @@ class ByteStreamer:
         self.clean_timer = 30 * 60
         self.client: Client = client
         self.cached_file_ids: Dict[int, FileId] = {}
+        self._session_lock = asyncio.Lock()          # two downloads must not build the same DC session twice
         asyncio.create_task(self.clean_cache())
 
     async def get_file_properties(self, id: int) -> FileId:
@@ -66,6 +67,20 @@ class ByteStreamer:
         This is required for getting the bytes from Telegram servers.
         """
 
+        async with self._session_lock:
+            return await self._get_or_create_session(client, file_id)
+
+    async def reset_media_session(self, client: Client, dc_id: int) -> None:
+        """Throw away a (probably dead) cached media session so the next call builds a fresh one."""
+        session = client.media_sessions.pop(dc_id, None)
+        if session is not None:
+            try:
+                await session.stop()
+            except Exception:
+                pass
+            logging.warning(f"Media session for DC {dc_id} was reset")
+
+    async def _get_or_create_session(self, client: Client, file_id: FileId) -> Session:
         media_session = client.media_sessions.get(file_id.dc_id, None)
 
         if media_session is None:
@@ -162,6 +177,21 @@ class ByteStreamer:
             )
         return location
 
+    async def _get_chunk(self, client: Client, file_id: FileId, location, offset: int, chunk_size: int):
+        """One GetFile call. If the cached Telegram media session went stale (typical after hours of uptime),
+        reset it and retry on a fresh one instead of silently sending an empty download."""
+        for attempt in range(3):
+            try:
+                session = await self.generate_media_session(client, file_id)
+                return await session.send(
+                    raw.functions.upload.GetFile(location=location, offset=offset, limit=chunk_size))
+            except (TimeoutError, ConnectionError, OSError, AttributeError) as e:
+                logging.warning(f"GetFile failed at offset {offset} (try {attempt + 1}/3): {e!r}")
+                await self.reset_media_session(client, file_id.dc_id)
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(1 + attempt)
+
     async def yield_file(
         self,
         file_id: FileId,
@@ -180,17 +210,11 @@ class ByteStreamer:
         client = self.client
         work_loads[index] += 1
         logging.debug(f"Starting to yielding file with client {index}.")
-        media_session = await self.generate_media_session(client, file_id)
-
         current_part = 1
         location = await self.get_location(file_id)
 
         try:
-            r = await media_session.send(
-                raw.functions.upload.GetFile(
-                    location=location, offset=offset, limit=chunk_size
-                ),
-            )
+            r = await self._get_chunk(client, file_id, location, offset, chunk_size)
             if isinstance(r, raw.types.upload.File):
                 while True:
                     chunk = r.bytes
@@ -211,15 +235,14 @@ class ByteStreamer:
                     if current_part > part_count:
                         break
 
-                    r = await media_session.send(
-                        raw.functions.upload.GetFile(
-                            location=location, offset=offset, limit=chunk_size
-                        ),
-                    )
-        except (TimeoutError, AttributeError):
-            pass
+                    r = await self._get_chunk(client, file_id, location, offset, chunk_size)
+        except (TimeoutError, ConnectionError, OSError, AttributeError):
+            # Retries are used up. Log it loudly (it used to be `pass`, which hid this bug) and let the
+            # connection break so the browser shows a real failure instead of a fake empty file.
+            logging.error(f"Streaming stopped at part {current_part}/{part_count} (offset {offset})", exc_info=True)
+            raise
         finally:
-            logging.debug("Finished yielding file with {current_part} parts.")
+            logging.debug(f"Finished yielding file with {current_part} parts.")
             work_loads[index] -= 1
 
     

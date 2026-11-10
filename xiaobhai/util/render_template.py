@@ -33,14 +33,14 @@ def _kind(mime: str, name: str) -> str:
     return ext[:5]
 
 
-async def render_page(id, secure_hash):
+async def render_page(id, secure_hash, exp, sig):
     file_data = await get_streamer(StreamBot).get_file_properties(int(id))     # cached, shared with the file route
     if file_data.unique_id[:6] != secure_hash:
         logging.debug(f"Invalid hash for message with ID {id}")
         raise InvalidHash
 
     src = urllib.parse.urljoin(
-        URL, f"file/{id}/{urllib.parse.quote(file_data.file_name, safe='')}?hash={secure_hash}")
+        URL, f"file/{id}/{urllib.parse.quote(file_data.file_name, safe='')}?hash={secure_hash}&exp={exp}&sig={sig}")
 
     return _env.get_template("dl.html").render(
         file_name=file_data.file_name.replace("_", " "),
