@@ -1,9 +1,9 @@
-"""Runtime access state: admins, bans, live rate limit, extra force-sub channels + filters + command menus.
+"""Runtime access state: admins, bans, live rate limit, extra force-sub channels, filters and command menus.
 Everything here can be changed by the owner from inside the bot (no redeploy needed)."""
 import logging
 
 from pyrogram import filters
-from pyrogram.types import BotCommand, BotCommandScopeChat
+from pyrogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefault
 
 from info import ADMINS, OWNER_ID, RATE_LIMIT_SECONDS, FORCE_SUB_CHANNELS, id_pattern
 from database.users_chats_db import db
@@ -90,25 +90,37 @@ async def load_runtime():
         logging.exception("Could not load runtime settings from MongoDB")
 
 
-USER_CMDS = [("start", "Start the bot"), ("id", "Show your Telegram ID")]
-ADMIN_CMDS = USER_CMDS + [
+# ---- command menus -------------------------------------------------------------------------
+# Everyone sees USER_CMDS. Moderator commands carry a "Moderator" tag and owner commands an "Owner" tag.
+# Only admins / the owner get the extra rows (per-chat menu); normal users never see them.
+USER_CMDS = [("start", "Start the bot"), ("id", "Show your Telegram ID"), ("help", "How to use the bot")]
+_MOD = [
     ("status", "Bot status"), ("health", "Health check"), ("ping", "Bot speed"), ("errors", "Recent errors"),
-    ("users", "User stats"), ("userinfo", "Info about a user"), ("resetlimit", "Reset a user's 2-min limit"),
+    ("users", "User stats"), ("userinfo", "Info about a user"), ("resetlimit", "Reset a user's link limit"),
     ("ban", "Ban a user"), ("unban", "Unban a user"), ("banlist", "Banned users"),
-    ("revoke", "Kill a download link"), ("broadcast", "Message all users"), ("setstart", "Change start image"),
-    ("help", "Admin help"),
+    ("revoke", "Disable a download link"), ("broadcast", "Message all users"), ("setstart", "Change start image"),
 ]
-OWNER_CMDS = ADMIN_CMDS + [
+_OWNER = [
     ("addadmin", "Add an admin"), ("deladmin", "Remove an admin"), ("admins", "List admins"),
     ("setlimit", "Change link limit (seconds)"), ("addfsub", "Add force-sub channel"),
     ("delfsub", "Remove force-sub channel"), ("fsublist", "List force-sub channels"), ("restart", "Restart / redeploy"),
 ]
+ADMIN_CMDS = USER_CMDS + [(c, f"Moderator · {d}") for c, d in _MOD]
+OWNER_CMDS = ADMIN_CMDS + [(c, f"Owner · {d}") for c, d in _OWNER]
+
+MOD_ONLY_COMMANDS = [c for c, _ in _MOD]        # admins + owner
+OWNER_ONLY_COMMANDS = [c for c, _ in _OWNER]    # owner only
 
 
 async def apply_commands(client, only_user: int = None):
     """Per-admin command menus (override the BotFather menu only for admins/owner)."""
     try:
-        # NOTE: the default (everyone) menu is NOT touched here - it comes from @BotFather /setcommands
+        if not only_user:
+            # default menu (normal users) = public commands only, so no moderator / owner command is ever listed
+            try:
+                await client.set_bot_commands([BotCommand(c, d) for c, d in USER_CMDS], scope=BotCommandScopeDefault())
+            except Exception:
+                logging.warning("Could not set the default command menu", exc_info=True)
         targets = [only_user] if only_user else list(ADMIN_IDS)
         for uid in targets:
             cmds = OWNER_CMDS if is_owner(uid) else ADMIN_CMDS
