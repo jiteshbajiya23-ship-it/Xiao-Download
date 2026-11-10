@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: xiao-download-bot
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: STORAGE_CHANNEL
+        sync: false
+      - key: DATABASE_URI
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: ADMINS
+        sync: false
+      - key: FORCE_SUB_CHANNELS
+        sync: false
