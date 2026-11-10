@@ -11,7 +11,9 @@ class Database:
 
     def __init__(self, uri, database_name):
         # Fail fast (8s) instead of hanging 30s when Mongo is unreachable
-        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri, serverSelectionTimeoutMS=8000)
+        # small pool = less RAM and fewer connections on Atlas M0 / Render free
+        self._client = motor.motor_asyncio.AsyncIOMotorClient(
+            uri, serverSelectionTimeoutMS=8000, maxPoolSize=10, minPoolSize=0, maxIdleTimeMS=60000)
         self.db = self._client[database_name]
         self.col = self.db.users
         self.stats = self.db.stats
@@ -26,6 +28,12 @@ class Database:
     async def ensure_indexes(self):
         # cooldown rows delete themselves 10 minutes after the last use
         await self.cool.create_index("at", expireAfterSeconds=600)
+        # without these, every user lookup scans the whole collection
+        try:
+            await self.col.create_index("id", unique=True)
+        except Exception:
+            await self.col.create_index("id")          # duplicates exist -> plain index still speeds things up
+        await self.col.create_index("joined")
 
     # ---- users ----
     async def add_user(self, id, name, username=None):
@@ -35,6 +43,18 @@ class Database:
                               "joined": time.time(), "links": 0}},
             upsert=True,
         )
+
+    async def upsert_user(self, id, name, username=None) -> bool:
+        """One database round trip: create the user if new, otherwise refresh their details.
+        Returns True when the user is new."""
+        now = time.time()
+        r = await self.col.update_one(
+            {"id": int(id)},
+            {"$set": {"name": name, "username": username, "last_seen": now},
+             "$setOnInsert": {"id": int(id), "joined": now, "links": 0}},
+            upsert=True,
+        )
+        return r.upserted_id is not None
 
     async def touch_user(self, id, name, username=None):
         await self.col.update_one({"id": int(id)},
@@ -68,7 +88,7 @@ class Database:
         return bool(await self.col.find_one({"id": int(id)}))
 
     async def total_users_count(self):
-        return await self.col.count_documents({})
+        return await self.col.estimated_document_count()    # instant (uses metadata, no scan)
 
     async def get_all_users(self):
         return self.col.find({})
