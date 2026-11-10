@@ -38,7 +38,7 @@ BOT_TOKEN = _required('BOT_TOKEN')
 # ---------------------------------------------------------------- Web server
 PORT = _int('PORT', 8080)                      # Render sets this automatically
 SLEEP_THRESHOLD = _int('SLEEP_THRESHOLD', 60)
-PING_INTERVAL = _int('PING_INTERVAL', 600)     # 10 min (Render free sleeps after 15 min idle)
+PING_INTERVAL = _int('PING_INTERVAL', 300)     # 5 min (Render free sleeps after 15 min idle, so this leaves a safe margin)
 
 # Public URL of the app. On Render, RENDER_EXTERNAL_URL is filled in automatically.
 URL = (environ.get('URL') or environ.get('RENDER_EXTERNAL_URL') or '').strip()

@@ -4,6 +4,14 @@ from datetime import date, datetime
 
 import pytz
 
+# uvloop = a much faster event loop (less CPU, which matters on Render's tiny free CPU).
+# It must be installed BEFORE pyrogram is imported. Falls back silently if it is not available.
+try:
+    import uvloop
+    uvloop.install()
+except Exception:
+    pass
+
 logging.config.fileConfig('logging.conf')
 logging.getLogger().setLevel(logging.INFO)
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
@@ -112,7 +120,7 @@ async def start():
     except Exception as e:
         logging.warning(f"Could not send message to LOG_CHANNEL (is the bot an admin in the storage channel?): {e}")
 
-    app = web.AppRunner(await web_server())
+    app = web.AppRunner(await web_server(), access_log=None)   # no per-request access log = less CPU
     await app.setup()
     await web.TCPSite(app, "0.0.0.0", PORT).start()
     logging.info(f"Web server running on port {PORT}")

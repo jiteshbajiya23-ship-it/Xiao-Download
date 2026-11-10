@@ -1,0 +1,8 @@
+.git
+.github
+__pycache__/
+*.pyc
+.env
+*.session
+TELEGRAM BOT.LOG
+README.md

@@ -9,3 +9,4 @@ psutil
 shortzy
 jinja2
 pytz
+uvloop; sys_platform != "win32"
