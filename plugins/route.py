@@ -11,10 +11,11 @@ from aiohttp.http_exceptions import BadStatusLine
 
 from info import WEBSITE_URL
 from xiaobhai.bot import multi_clients, work_loads
-from xiaobhai.server.exceptions import FIleNotFound, InvalidHash
+from xiaobhai.server.exceptions import FIleNotFound, InvalidHash, LinkExpired
 from xiaobhai.util.custom_dl import get_streamer, streamers as class_cache   # class_cache: used by /revoke
 from xiaobhai.util.render_template import render_page, render_error
 from xiaobhai.util.alerts import send_alert
+from xiaobhai.util.linksign import verify
 from utils import temp
 
 routes = web.RouteTableDef()
@@ -33,6 +34,9 @@ def _safe(handler):
         except InvalidHash:
             return _html(render_error("Invalid link", "This download link is incorrect or has changed. "
                                       "Please create a new link from the bot."), 403)
+        except LinkExpired:
+            return _html(render_error("Link expired", "This download link has expired. "
+                                      "Please send the file to the bot again to get a fresh link."), 410)
         except FIleNotFound:
             return _html(render_error("Link expired", "This file is no longer available (the link may have been revoked). "
                                       "Please create a new link from the bot."), 404)
@@ -62,14 +66,20 @@ async def health_route_handler(request):
 @_safe
 async def download_page_handler(request: web.Request):
     """The link users get: a nice page that starts the download by itself."""
-    return _html(await render_page(int(request.match_info["id"]), request.rel_url.query.get("hash", "")))
+    q = request.rel_url.query
+    msg_id = int(request.match_info["id"])
+    verify(msg_id, q.get("hash", ""), q.get("exp", ""), q.get("sig", ""))      # bad / expired -> error page
+    return _html(await render_page(msg_id, q.get("hash", ""), q.get("exp", ""), q.get("sig", "")))
 
 
 @routes.get(r"/file/{id:\d+}/{name:.*}", allow_head=True)
 @_safe
 async def file_handler(request: web.Request):
     """The raw file (used only by the download page)."""
-    return await media_streamer(request, int(request.match_info["id"]), request.rel_url.query.get("hash", ""))
+    q = request.rel_url.query
+    msg_id = int(request.match_info["id"])
+    verify(msg_id, q.get("hash", ""), q.get("exp", ""), q.get("sig", ""))      # bad / expired -> error page
+    return await media_streamer(request, msg_id, q.get("hash", ""))
 
 
 async def media_streamer(request: web.Request, id: int, secure_hash: str):

@@ -15,6 +15,7 @@ from xiaobhai.util.access import is_admin, ADMIN_F, state
 from xiaobhai.util.alerts import send_alert
 from xiaobhai.util.file_properties import get_name, get_hash, get_media_file_size
 from xiaobhai.util.human_readable import humanbytes
+from xiaobhai.util.linksign import sign_query
 from xiaobhai.util.logger import log_event, user_line, now_ist
 from xiaobhai.util.maintenance import revoke_link
 from xiaobhai.util.users import track_user
@@ -109,7 +110,7 @@ async def create_links(client, message):
     file_hash = get_hash(log_msg)
     size = humanbytes(get_media_file_size(message)) or "—"
     # /dl/ = our nice download page (never a raw file URL -> no black screen / Google)
-    download = f"{URL}dl/{log_msg.id}/{quote(name, safe='')}?hash={file_hash}"
+    download = f"{URL}dl/{log_msg.id}/{quote(name, safe='')}?{sign_query(log_msg.id, file_hash)}"
     if SHORTLINK:
         download = await get_shortlink(download)
 
