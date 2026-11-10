@@ -110,7 +110,7 @@ async def start():
                 text=f"⚠️ <b>MongoDB is not connecting</b>\n\n<code>{str(db_error)[:900]}</code>\n\n"
                      f"Check DATABASE_URI and Atlas Network Access (0.0.0.0/0).")
     except Exception as e:
-        logging.warning(f"Could not send message to LOG_CHANNEL (bot channel me admin hai?): {e}")
+        logging.warning(f"Could not send message to LOG_CHANNEL (is the bot an admin in the storage channel?): {e}")
 
     app = web.AppRunner(await web_server())
     await app.setup()
