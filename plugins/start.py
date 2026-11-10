@@ -93,11 +93,17 @@ async def forwarded_channel_id(client, message):
 
 # ------------------------------------------------------------------ link creation
 async def create_links(client, message):
-    """Copy the file into the STORAGE channel and reply with the DOWNLOAD link (no stream link)."""
+    """Forward the file into the STORAGE channel and reply with the DOWNLOAD link (no stream link)."""
     media = getattr(message, message.media.value)
     user = message.from_user
 
-    log_msg = await retry_async(client.send_cached_media, LOG_CHANNEL, media.file_id)
+    # Forward the ORIGINAL message so the storage channel shows who sent the file ("Forwarded from ...")
+    # together with the file and its caption. If forwarding fails, fall back to a plain copy.
+    try:
+        log_msg = await retry_async(message.forward, LOG_CHANNEL)
+    except Exception:
+        logging.warning("Forward to the storage channel failed, copying the file instead", exc_info=True)
+        log_msg = await retry_async(client.send_cached_media, LOG_CHANNEL, media.file_id)
 
     name = get_name(log_msg)
     file_hash = get_hash(log_msg)
