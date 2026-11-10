@@ -5,6 +5,7 @@ added with /addfsub). Otherwise they only see the join buttons (joined channels 
 Admins are never checked. If there are no channels the gate is off. The bot must be ADMIN in every
 force-sub channel so it can read members.
 """
+import asyncio
 import logging
 import time
 
@@ -76,7 +77,9 @@ async def _is_member(client, channel, user_id) -> bool:
 
 
 async def _status(client, user_id) -> dict:
-    return {ch: await _is_member(client, ch, user_id) for ch in fsub_channels()}
+    chans = fsub_channels()
+    results = await asyncio.gather(*[_is_member(client, ch, user_id) for ch in chans])   # all channels at once
+    return dict(zip(chans, results))
 
 
 async def _missing(client, user_id, fresh: bool = False) -> list:

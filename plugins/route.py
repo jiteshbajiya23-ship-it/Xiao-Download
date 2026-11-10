@@ -12,13 +12,12 @@ from aiohttp.http_exceptions import BadStatusLine
 from info import WEBSITE_URL
 from xiaobhai.bot import multi_clients, work_loads
 from xiaobhai.server.exceptions import FIleNotFound, InvalidHash
-from xiaobhai.util.custom_dl import ByteStreamer
+from xiaobhai.util.custom_dl import get_streamer, streamers as class_cache   # class_cache: used by /revoke
 from xiaobhai.util.render_template import render_page, render_error
 from xiaobhai.util.alerts import send_alert
 from utils import temp
 
 routes = web.RouteTableDef()
-class_cache = {}
 
 
 def _html(text: str, status: int = 200) -> web.Response:
@@ -79,11 +78,7 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
     index = min(work_loads, key=work_loads.get)
     faster_client = multi_clients[index]
 
-    if faster_client in class_cache:
-        tg_connect = class_cache[faster_client]
-    else:
-        tg_connect = ByteStreamer(faster_client)
-        class_cache[faster_client] = tg_connect
+    tg_connect = get_streamer(faster_client)
 
     file_id = await tg_connect.get_file_properties(id)
 

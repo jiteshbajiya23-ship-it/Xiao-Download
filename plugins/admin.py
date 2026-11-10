@@ -20,6 +20,7 @@ from xiaobhai.util.maintenance import revoke_link
 
 HTML = enums.ParseMode.HTML
 ADMIN = ADMIN_F
+psutil.cpu_percent(interval=None)      # prime the counter so later calls need no blocking wait
 
 NAV = InlineKeyboardMarkup([
     [InlineKeyboardButton("📊 Status", callback_data="ad|status"), InlineKeyboardButton("🩺 Health", callback_data="ad|health")],
@@ -29,7 +30,7 @@ NAV = InlineKeyboardMarkup([
 
 # ------------------------------------------------------------------ STATUS
 async def build_status() -> str:
-    cpu = psutil.cpu_percent(interval=0.3)
+    cpu = psutil.cpu_percent(interval=None)   # non-blocking (the old 0.3 s wait froze the whole bot)
     ram = psutil.virtual_memory()
     try:
         users = await db.total_users_count()
