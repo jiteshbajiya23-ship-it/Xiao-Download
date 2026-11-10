@@ -78,6 +78,11 @@ RATE_LIMIT_SECONDS = _int('RATE_LIMIT_SECONDS', 120)
 # N > 0 = after the download starts, send the visitor to WEBSITE_URL after N seconds.
 REDIRECT_AFTER_SECONDS = _int('REDIRECT_AFTER_SECONDS', 0)
 
+# Download links stop working this many hours after they were created (1 or 2 is a good value).
+# LINK_SECRET signs the links; if you leave it empty BOT_TOKEN is used. Changing either one kills all old links.
+LINK_EXPIRY_HOURS = max(_int('LINK_EXPIRY_HOURS', 2), 1)
+LINK_SECRET = environ.get('LINK_SECRET', '').strip() or BOT_TOKEN
+
 # ---------------------------------------------------------------- Force Subscribe (multi)
 # Space separated. Channel IDs (-100...) or @usernames. The bot must be ADMIN in each channel.
 # Example: FORCE_SUB_CHANNELS=@ongoingdonghuachat @donghuagalaxy1 @xiao_botz

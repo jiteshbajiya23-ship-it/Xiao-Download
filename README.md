@@ -87,6 +87,8 @@ Built for [🌐 xiaobhaidonghua.com](https://xiaobhaidonghua.com)
 | `FORCE_SUB_CHANNELS` | ➖ | e.g. `@ongoingdonghuachat @donghuagalaxy1 @xiao_botz` |
 | `RATE_LIMIT_SECONDS` | ➖ | Default `120` |
 | `REDIRECT_AFTER_SECONDS` | ➖ | Default `0` (stay on the download page) |
+| `LINK_EXPIRY_HOURS` | ➖ | Download links die after this many hours. Default `2` |
+| `LINK_SECRET` | ➖ | Signs the links. Empty = `BOT_TOKEN` is used |
 | `START_IMAGE` | ➖ | Direct image link (`.jpg` / `.png`) |
 | `RENDER_API_KEY`, `RENDER_SERVICE_ID` | ➖ | Enables a full redeploy from `/restart` |
 
