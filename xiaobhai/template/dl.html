@@ -72,8 +72,8 @@ footer a { color:var(--text); text-decoration:none; font-weight:600; }
         <a class="pill" href="{{ discussion_url }}">💬 Discussion</a>
       </div>
 
-      <p class="tip">Download shuru na ho to <b>Download again</b> dabao.<br>
-      Telegram ke andar na khule to link ko <b>Chrome / Safari</b> me open karo.</p>
+      <p class="tip">💡 If the download doesn't start, tap <b>Download again</b>.<br>
+      If the link doesn't work inside Telegram, open it in <b>Chrome / Safari</b>.</p>
       <p class="redir" id="redir">Taking you to the website in <b id="sec"></b>s · <a href="#" id="stay">stay here</a></p>
     </div>
   </main>
@@ -95,7 +95,7 @@ footer a { color:var(--text); text-decoration:none; font-weight:600; }
     function markStarted() {
       card.className = "card done";
       document.getElementById("icon").textContent = "✅";
-      statusEl.innerHTML = "✅ <b>Download started!</b><br><span style='font-size:12.5px'>Notification ya Downloads folder check karo</span>";
+      statusEl.innerHTML = "✅ <b>Download started!</b><br><span style='font-size:12.5px'>Check your notifications or the Downloads folder</span>";
       if (REDIRECT > 0) {
         var left = REDIRECT, box = document.getElementById("redir"), sec = document.getElementById("sec"), stop = false;
         box.style.display = "block"; sec.textContent = left;
