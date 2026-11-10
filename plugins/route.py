@@ -32,11 +32,11 @@ def _safe(handler):
         try:
             return await handler(request)
         except InvalidHash:
-            return _html(render_error("Invalid link", "Ye download link galat hai ya badal gaya hai. "
-                                      "Bot se naya link bana lo."), 403)
+            return _html(render_error("Invalid link", "This download link is incorrect or has changed. "
+                                      "Please create a new link from the bot."), 403)
         except FIleNotFound:
-            return _html(render_error("Link expired", "Ye file ab available nahi hai (link revoke ho gaya hoga). "
-                                      "Bot se naya link bana lo."), 404)
+            return _html(render_error("Link expired", "This file is no longer available (the link may have been revoked). "
+                                      "Please create a new link from the bot."), 404)
         except web.HTTPException:
             raise
         except (BadStatusLine, ConnectionResetError):
@@ -44,8 +44,8 @@ def _safe(handler):
         except Exception as e:
             logging.exception("Web route error")
             asyncio.ensure_future(send_alert("Web route error", exc=e, key="web500"))
-            return _html(render_error("Something went wrong", "Server me problem aa gayi. "
-                                      "Thodi der baad dobara try karo."), 500)
+            return _html(render_error("Something went wrong", "Something went wrong on our server. "
+                                      "Please try again in a little while."), 500)
     return wrapper
 
 

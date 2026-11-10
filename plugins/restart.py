@@ -40,13 +40,13 @@ def _render_redeploy() -> str:
 @Client.on_message(filters.command("restart") & filters.private & OWNER_F)
 async def restart_cmd(client: Client, message):
     if RENDER_API_KEY and RENDER_SERVICE_ID:
-        note = await message.reply_text("♻️ Render se redeploy maang raha hu… 1-2 minute me bot wapas aa jayega.")
+        note = await message.reply_text("♻️ Requesting a redeploy from Render… the bot will be back in 1–2 minutes.")
         err = await asyncio.to_thread(_render_redeploy)
         if err:
             log.error("Render redeploy failed: %s", err)
-            await note.edit_text(f"❌ Redeploy failed:\n<code>{err}</code>", parse_mode=HTML)
+            await note.edit_text(f"❌ <b>Redeploy failed</b>\n<code>{err}</code>", parse_mode=HTML)
         return
 
-    await message.reply_text("♻️ Process restart ho raha hai… (full redeploy ke liye RENDER_API_KEY + RENDER_SERVICE_ID set karo)")
+    await message.reply_text("♻️ Restarting the process… (set RENDER_API_KEY + RENDER_SERVICE_ID for a full redeploy)")
     await asyncio.sleep(1)
     os.execv(sys.executable, [sys.executable] + sys.argv)

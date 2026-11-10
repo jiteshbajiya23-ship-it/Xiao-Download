@@ -3,7 +3,7 @@ import datetime
 import logging
 import time
 
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
 
 from database.users_chats_db import db
@@ -16,10 +16,10 @@ async def pm_broadcast(bot, message):
     # Usage: reply to any message with /broadcast
     b_msg = message.reply_to_message
     if not b_msg:
-        return await message.reply_text("Jis message ko broadcast karna hai uspe reply karke /broadcast bhejo.")
+        return await message.reply_text("📢 Reply to the message you want to send with /broadcast.")
 
     users = await db.get_all_users()
-    sts = await message.reply_text("Broadcasting your message...")
+    sts = await message.reply_text("📢 Broadcasting your message…")
     start_time = time.time()
     total_users = await db.total_users_count()
     done = blocked = deleted = failed = success = 0
@@ -41,16 +41,18 @@ async def pm_broadcast(bot, message):
         if not done % 20:
             try:
                 await sts.edit(
-                    f"Broadcast in progress:\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\n"
-                    f"Success: {success}\nBlocked: {blocked}\nDeleted: {deleted}"
+                    parse_mode=enums.ParseMode.HTML, text=f"📢 <b>Broadcast in progress</b>\n━━━━━━━━━━━━━━━━━━\n👥 Total users: {total_users}\n"
+                    f"⏳ Completed: {done} / {total_users}\n✅ Success: {success}\n"
+                    f"🚫 Blocked: {blocked}\n🗑 Deleted: {deleted}"
                 )
             except Exception:
                 pass
 
     time_taken = datetime.timedelta(seconds=int(time.time() - start_time))
     await sts.edit(
-        f"Broadcast Completed in {time_taken}.\n\nTotal Users: {total_users}\nCompleted: {done} / {total_users}\n"
-        f"Success: {success}\nBlocked: {blocked}\nDeleted: {deleted}\nFailed: {failed}"
+        parse_mode=enums.ParseMode.HTML, text=f"✅ <b>Broadcast completed</b> in {time_taken}\n━━━━━━━━━━━━━━━━━━\n👥 Total users: {total_users}\n"
+        f"⏳ Completed: {done} / {total_users}\n✅ Success: {success}\n🚫 Blocked: {blocked}\n"
+        f"🗑 Deleted: {deleted}\n⚠️ Failed: {failed}"
     )
     await log_event(f"📢 <b>Broadcast finished</b>\n━━━━━━━━━━━━━━━━━━\nBy: <code>{message.from_user.id}</code>\n"
                     f"✅ Success: <code>{success}</code>\n🚫 Blocked: <code>{blocked}</code>\n"

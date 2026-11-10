@@ -38,11 +38,15 @@ def _gap() -> str:
     return fmt_duration(state.rate) if state.rate > 0 else "no limit"
 
 
+def rule_text() -> str:
+    return f"1 link per {fmt_duration(state.rate)}" if state.rate > 0 else "Unlimited links"
+
+
 # ------------------------------------------------------------------ /start
 async def send_start(client, chat_id, user):
     """Start screen: image + text + buttons. Falls back to plain text if the image can't be sent."""
     tmpl = script.ADMIN_START_TXT if is_admin(user.id) else script.START_TXT
-    caption = tmpl.format(user.mention(style=HTML), WEBSITE_URL, html.escape(SITE_NAME), _gap())
+    caption = tmpl.format(user.mention(style=HTML), WEBSITE_URL, html.escape(SITE_NAME), rule_text())
     markup = start_markup()
 
     # image priority: cached file_id -> /setstart image -> START_IMAGE url
@@ -162,8 +166,8 @@ async def file_handler(client, message):
         if limited:
             await db.release(user.id)               # failed -> user does not lose the slot
         await send_alert("Link generation failed", exc=e, key="linkgen")
-        await message.reply_text("❌ <b>Link nahi ban paya.</b>\n<i>Error owner ko bhej diya gaya hai. "
-                                 "Thodi der baad dobara try karo.</i>", parse_mode=HTML, quote=True)
+        await message.reply_text("❌ <b>Couldn't create your link.</b>\n<i>The owner has been notified. "
+                                 "Please try again in a little while.</i>", parse_mode=HTML, quote=True)
 
 
 @Client.on_message(filters.private & filters.incoming & filters.text & ~filters.regex(r"^/"))
@@ -175,7 +179,7 @@ async def text_hint(client, message):
 @Client.on_callback_query(filters.regex(r"^rv\|"))
 async def revoke_button(client, query):
     if not is_admin(query.from_user.id):
-        return await query.answer("Admins only.", show_alert=True)
+        return await query.answer("⛔ You are not an admin / owner.", show_alert=True)
     try:
         await revoke_link(client, int(query.data.split("|")[1]))
         await query.answer("Link revoked")

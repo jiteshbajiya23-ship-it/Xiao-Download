@@ -24,10 +24,10 @@ CACHE_SECONDS = 120          # a verified user is not re-checked for 2 minutes
 _ban_note: dict = {}
 
 JOIN_TXT = (
-    "🔒 <b>Pehle hamare channels join karo!</b>\n"
+    "🔒 <b>Join our channels first!</b>\n"
     "━━━━━━━━━━━━━━━━━━\n"
-    "Bot use karne ke liye neeche ke <b>{n}</b> channel(s) join karna zaroori hai.\n"
-    "Join karke <b>✅ I've Joined</b> dabao.\n\n"
+    "To use this bot, please join the <b>{n}</b> channel(s) below.\n"
+    "Then tap <b>✅ I've Joined</b>.\n\n"
     "{status}"
 )
 
@@ -39,7 +39,7 @@ async def ban_gate(client, message):
     if time.time() - _ban_note.get(uid, 0) > 60:
         _ban_note[uid] = time.time()
         try:
-            await message.reply_text("🚫 <b>Aap is bot se ban ho.</b>\n<i>Help ke liye owner se contact karo.</i>", parse_mode=HTML)
+            await message.reply_text("🚫 <b>You are banned from this bot.</b>\n<i>Contact the owner if you think this is a mistake.</i>", parse_mode=HTML)
         except Exception:
             pass
     raise StopPropagation
@@ -160,7 +160,7 @@ async def force_sub_check(client, query):
     user = query.from_user
     _ok_until.pop(user.id, None)           # force a fresh check
     if await _missing(client, user.id):
-        await query.answer("❌ Abhi saare channels join nahi kiye!", show_alert=True)
+        await query.answer("❌ You haven't joined all the channels yet!", show_alert=True)
         try:
             text, markup = await _join_view(client, user.id)
             await query.message.edit_text(text, parse_mode=HTML, reply_markup=markup,
@@ -168,7 +168,7 @@ async def force_sub_check(client, query):
         except Exception:
             pass            # "message not modified" when nothing changed
     else:
-        await query.answer("✅ Verified! Welcome")
+        await query.answer("✅ Verified! Welcome 🎉")
         try:
             await query.message.delete()
         except Exception:
@@ -183,7 +183,7 @@ async def force_sub_check(client, query):
 async def force_sub_buttons(client, query):
     if await _missing(client, query.from_user.id):
         try:
-            await query.answer("🔒 Pehle required channels join karo, phir /start bhejo.", show_alert=True)
+            await query.answer("🔒 Join the required channels first, then send /start.", show_alert=True)
         except Exception:
             pass
         raise StopPropagation

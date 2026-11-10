@@ -1,4 +1,5 @@
-"""Admin commands: /status /health /ping /errors /revoke /setstart /help (+ refresh buttons)."""
+"""Moderator commands: /status /health /ping /errors /revoke /setstart (+ refresh buttons).
+Public: /help (shows a different list for users, moderators and the owner)."""
 import asyncio
 import html
 import re
@@ -13,7 +14,8 @@ from Script import script, LINE
 from database.users_chats_db import db
 from info import URL, LOG_CHANNEL
 from utils import temp, bar, fmt_uptime, fmt_duration
-from xiaobhai.util.access import ADMIN_F, ADMIN_IDS, BANNED, fsub_channels, is_admin, is_owner, state
+from xiaobhai.util.access import (ADMIN_F, OWNER_F, ADMIN_IDS, BANNED, MOD_ONLY_COMMANDS, OWNER_ONLY_COMMANDS,
+                                  fsub_channels, is_admin, is_owner, state)
 from xiaobhai.util.maintenance import revoke_link
 
 HTML = enums.ParseMode.HTML
@@ -105,18 +107,40 @@ async def health_cmd(client, message):
     await sts.edit_text(await build_health(), parse_mode=HTML, reply_markup=NAV)
 
 
+# ------------------------------------------------------------------ ACCESS DENIED
+# Normal users who type a moderator command (or admins who type an owner command) get a clear answer
+# instead of silence. These filters never overlap with the real handlers, so nothing double-fires.
+@Client.on_message(filters.command(MOD_ONLY_COMMANDS + OWNER_ONLY_COMMANDS) & filters.private & ~ADMIN_F)
+async def deny_not_admin(client, message):
+    await message.reply_text(script.NOT_ADMIN_TXT, parse_mode=HTML, quote=True)
+
+
+@Client.on_message(filters.command(OWNER_ONLY_COMMANDS) & filters.private & ADMIN_F & ~OWNER_F)
+async def deny_not_owner(client, message):
+    await message.reply_text(script.NOT_OWNER_TXT, parse_mode=HTML, quote=True)
+
+
 # ------------------------------------------------------------------ PING / HELP
 @Client.on_message(filters.command("ping") & filters.private & ADMIN)
 async def ping_cmd(client, message):
     t = time.perf_counter()
-    sts = await message.reply_text("🏓 …")
+    sts = await message.reply_text("🏓 Pinging…")
     await sts.edit_text(f"🏓 <b>Pong!</b>  <code>{(time.perf_counter() - t) * 1000:.0f} ms</code>", parse_mode=HTML)
 
 
-@Client.on_message(filters.command("help") & filters.private & ADMIN)
+def help_text(uid: int) -> str:
+    """Role based help: users see user commands, moderators add the moderator list, the owner sees everything."""
+    if is_owner(uid):
+        return script.HELP_TXT + script.OWNER_HELP_TXT
+    if is_admin(uid):
+        return script.HELP_TXT
+    return script.USER_HELP_TXT.format(gap=f"1 link per {fmt_duration(state.rate)}" if state.rate > 0 else "Unlimited links")
+
+
+@Client.on_message(filters.command("help") & filters.private)
 async def help_cmd(client, message):
-    text = script.HELP_TXT + (script.OWNER_HELP_TXT if is_owner(message.from_user.id) else "")
-    await message.reply_text(text, parse_mode=HTML, reply_markup=NAV)
+    uid = message.from_user.id
+    await message.reply_text(help_text(uid), parse_mode=HTML, reply_markup=NAV if is_admin(uid) else None)
 
 
 # ------------------------------------------------------------------ ERRORS
@@ -161,17 +185,17 @@ async def revoke_cmd(client, message):
 async def setstart_cmd(client, message):
     r = message.reply_to_message
     if not r or not r.photo:
-        return await message.reply_text("🖼 Kisi <b>photo</b> par reply karke /setstart bhejo.", parse_mode=HTML)
+        return await message.reply_text("🖼 Reply to a <b>photo</b> with /setstart.", parse_mode=HTML)
     await db.set_setting("start_image", r.photo.file_id)
     temp.START_FILE_ID = r.photo.file_id
-    await message.reply_text("✅ Start image update ho gayi. /start bhejke dekh lo.")
+    await message.reply_text("✅ Start image updated. Send /start to preview it.")
 
 
 # ------------------------------------------------------------------ BUTTONS
 @Client.on_callback_query(filters.regex(r"^ad\|"))
 async def admin_buttons(client, query):
     if not is_admin(query.from_user.id):
-        return await query.answer("Admins only.", show_alert=True)
+        return await query.answer("⛔ You are not an admin / owner.", show_alert=True)
     action = query.data.split("|")[1]
     await query.answer("Updating…" if action in ("status", "health") else None)
     if action == "status":
@@ -181,7 +205,7 @@ async def admin_buttons(client, query):
     elif action == "errors":
         text = build_errors()
     else:
-        text = script.HELP_TXT + (script.OWNER_HELP_TXT if is_owner(query.from_user.id) else "")
+        text = help_text(query.from_user.id)
     try:
         await query.message.edit_text(text, parse_mode=HTML, reply_markup=NAV)
     except Exception:
