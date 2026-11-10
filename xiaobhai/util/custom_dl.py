@@ -49,6 +49,8 @@ class ByteStreamer:
         Generates the properties of a media file on a specific message.
         returns ths properties in a FIleId class.
         """
+        if len(self.cached_file_ids) >= 500:      # hard cap so memory can never grow without limit
+            self.cached_file_ids.clear()
         file_id = await get_file_ids(self.client, LOG_CHANNEL, id)
         logging.debug(f"Generated file ID and Unique ID for message with ID {id}")
         if not file_id:
@@ -229,3 +231,15 @@ class ByteStreamer:
             await asyncio.sleep(self.clean_timer)
             self.cached_file_ids.clear()
             logging.debug("Cleaned the cache")
+
+
+# One ByteStreamer per client, shared by the download page AND the file route, so a link that was just
+# opened is looked up on Telegram only once instead of twice.
+streamers: Dict[Client, ByteStreamer] = {}
+
+
+def get_streamer(client: Client) -> ByteStreamer:
+    streamer = streamers.get(client)
+    if streamer is None:
+        streamer = streamers[client] = ByteStreamer(client)
+    return streamer

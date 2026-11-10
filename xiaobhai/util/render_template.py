@@ -8,7 +8,7 @@ from info import (LOG_CHANNEL, URL, WEBSITE_URL, SITE_NAME, REDIRECT_AFTER_SECON
                   DISCUSSION_URL, DONGHUA_URL, UPDATES_URL)
 from xiaobhai.bot import StreamBot
 from xiaobhai.server.exceptions import InvalidHash
-from xiaobhai.util.file_properties import get_file_ids
+from xiaobhai.util.custom_dl import get_streamer
 from xiaobhai.util.human_readable import humanbytes
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "template"
@@ -34,7 +34,7 @@ def _kind(mime: str, name: str) -> str:
 
 
 async def render_page(id, secure_hash):
-    file_data = await get_file_ids(StreamBot, int(LOG_CHANNEL), int(id))
+    file_data = await get_streamer(StreamBot).get_file_properties(int(id))     # cached, shared with the file route
     if file_data.unique_id[:6] != secure_hash:
         logging.debug(f"Invalid hash for message with ID {id}")
         raise InvalidHash
