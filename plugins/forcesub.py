@@ -79,10 +79,13 @@ async def _status(client, user_id) -> dict:
     return {ch: await _is_member(client, ch, user_id) for ch in fsub_channels()}
 
 
-async def _missing(client, user_id) -> list:
+async def _missing(client, user_id, fresh: bool = False) -> list:
+    """Channels the user has NOT joined. fresh=True skips the cache (used when a file is sent)."""
     if not fsub_channels():
         return []
-    if time.time() < _ok_until.get(user_id, 0):
+    if fresh:
+        _ok_until.pop(user_id, None)
+    elif time.time() < _ok_until.get(user_id, 0):
         return []
     st = await _status(client, user_id)
     missing = [ch for ch, ok in st.items() if not ok]
@@ -136,13 +139,32 @@ async def _join_view(client, user_id):
     return JOIN_TXT.format(n=missing or len(st), status="\n".join(lines)), InlineKeyboardMarkup(rows)
 
 
+# ------------------------------------------------------------------ left a channel -> forget the cached "verified"
+@Client.on_chat_member_updated(group=-100)
+async def member_left(client, update):
+    """When someone leaves (or is removed from) a channel, drop their cache so the next message re-checks them.
+    Works for channels where the bot is an admin (the same requirement as force-sub itself)."""
+    try:
+        old, new = update.old_chat_member, update.new_chat_member
+        user = (new or old).user if (new or old) else None
+        if not user:
+            return
+        if new is None or new.status in (enums.ChatMemberStatus.LEFT, enums.ChatMemberStatus.BANNED):
+            _ok_until.pop(user.id, None)
+    except Exception:
+        logging.debug("member_left handler failed", exc_info=True)
+
+
 # ------------------------------------------------------------------ force-sub gate
 @Client.on_message(filters.private & filters.incoming & ~ADMIN_F, group=-101)
 async def force_sub_gate(client, message):
     user = message.from_user
     if not user or not fsub_channels():
         return
-    if not await _missing(client, user.id):
+    # Sending a file = creating a link, so ALWAYS re-check live (no cache). This stops someone who joined,
+    # then left the channel, from still making links during the 2-minute cache window.
+    fresh = bool(message.media)
+    if not await _missing(client, user.id, fresh=fresh):
         return  # all joined -> normal handlers run
     started = bool(message.text and message.text.startswith("/start"))
     await track_user(user, started, note="🔒 Force-sub pending (has not joined all channels)")
