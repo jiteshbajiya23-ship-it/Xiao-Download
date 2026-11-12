@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 import pytz
 
-# uvloop = a much faster event loop (less CPU, which matters on Render's tiny free CPU).
+# uvloop = a much faster event loop (less CPU, which matters on small free hosts like Kerit 256 MB).
 # It must be installed BEFORE pyrogram is imported. Falls back silently if it is not available.
 try:
     import uvloop
